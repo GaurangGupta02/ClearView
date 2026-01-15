@@ -1,7 +1,7 @@
 import pdfplumber
 
 def extract_text_from_pdf(pdf_path):
-    text_pages = []
+    text_pages = [] 
     try:
         with pdfplumber.open(pdf_path) as pdf:
             for page in pdf.pages:
