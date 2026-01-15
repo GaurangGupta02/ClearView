@@ -1,4 +1,4 @@
-import fitz  # PyMuPDF
+import fitz  # PyMuPDF 
 import re
 
 def abbreviate_pdf(input_path, output_path, abbreviations, return_used=False, include_reference_pages=False):
