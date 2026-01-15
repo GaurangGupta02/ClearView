@@ -6,113 +6,91 @@ from modules.extractor import extract_text_from_pdf
 from modules.replacer import load_abbreviations, replace_with_abbreviations
 from modules.abbreviator import abbreviate_pdf
 
+# ---------------- LIGHTWEIGHT SUMMARIZER (NO MODELS) ----------------
+
+def lightweight_summarizer(text, num_sentences=10):
+    import re
+    from collections import Counter
+
+    text = text.replace("\n", " ")
+    sentences = re.split(r'(?<=[.!?]) +', text)
+
+    if len(sentences) <= num_sentences:
+        return text
+
+    words = re.findall(r'\w+', text.lower())
+    freq = Counter(words)
+
+    scores = {}
+    for s in sentences:
+        scores[s] = sum(freq[w] for w in re.findall(r'\w+', s.lower()))
+
+    top_sentences = sorted(scores, key=scores.get, reverse=True)[:num_sentences]
+    return " ".join(s for s in sentences if s in top_sentences)
+
+# -------------------------------------------------------------------
+
 # Page Config
 st.set_page_config(page_title="DocMinimizer", layout="wide")
-st.title("📄 DocMinimizer – PDF Abbreviation Compressor")
+st.title("📄 ClearView")
 
 uploaded_file = st.file_uploader("Upload your PDF", type=["pdf"])
 
-# Day/Night Toggle
-mode = st.toggle("🌙 Night Mode", value=False)
+# -------------------------------------------------------------------
+# 🔹 FIXED LIGHT MODE STYLING (NO NIGHT MODE)
+# -------------------------------------------------------------------
 
-# Define styles
-if mode:  # Night mode
-    background_color = "#0e1117"
-    text_color = "#fafafa"
-    widget_color = "#262730"
-    metric_value_color = "#ffffff"
-    metric_label_color = "#cccccc"
-    table_text_color = "#ffffff"
-else:  # Day mode
-    background_color = "#ffffff"
-    text_color = "#000000"
-    widget_color = "#f0f2f6"
-    metric_value_color = "#000000"
-    metric_label_color = "#444444"
-    table_text_color = "#000000"
+background_color = "#0d7fdd"
+text_color = "#F0EFEFFF"
+widget_color = "#193675"
 
-# Inject custom CSS with improved metric and table styling
 st.markdown(f"""
-    <style>
-        .stApp {{
-            background-color: {background_color};
-            color: {text_color};
-        }}
-        .stTextArea textarea {{
-            background-color: {widget_color};
-            color: {text_color};
-        }}
-        .stTextInput > div > div > input {{
-            background-color: {widget_color};
-            color: {text_color};
-        }}
-        .stDownloadButton button,
-        .stButton button {{
-            background-color: {widget_color};
-            color: {text_color};
-        }}
-        
-        /* Fix for metric styling */
-        [data-testid="stMetric"] {{
-            background-color: {widget_color};
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 10px;
-        }}
-        [data-testid="stMetric"] > div {{
-            color: {metric_value_color} !important;
-        }}
-        [data-testid="stMetric"] label {{
-            color: {metric_label_color} !important;
-        }}
-        [data-testid="stMetricValue"] {{
-            color: {metric_value_color} !important;
-            font-weight: bold;
-        }}
-        [data-testid="stMetricLabel"] {{
-            color: {metric_label_color} !important;
-        }}
-        [data-testid="stMetricDelta"] {{
-            color: {metric_value_color} !important;
-        }}
-        
-        /* Fix for table styling */
-        .stTable {{
-            color: {table_text_color} !important;
-        }}
-        .stTable th {{
-            background-color: {widget_color};
-            color: {text_color} !important;
-            font-weight: bold;
-        }}
-        .stTable td {{
-            color: {table_text_color} !important;
-        }}
-        
-        /* Dataframe styling removed as we're using table instead */
-        
-        /* Toggle button styling */
-        .stToggle {{
-            background-color: {widget_color};
-            border-radius: 20px;
-            padding: 2px;
-        }}
-        
-        /* Headings */
-        h1, h2, h3, h4, h5, h6 {{
-            color: {text_color} !important;
-        }}
-        
-        /* Info box */
-        .stAlert {{
-            background-color: {widget_color};
-            color: {text_color};
-        }}
-    </style>
+<style>
+.stApp {{
+    background-color: {background_color};
+    color: {text_color};
+}}
+
+.stTextArea textarea,
+.stTextInput input,
+.stButton button,
+.stDownloadButton button {{
+    background-color: {widget_color};
+    color: {text_color};
+}}
+
+[data-testid="stMetric"] {{
+    background-color: {widget_color};
+    padding: 10px;
+    border-radius: 6px;
+}}
+
+h1, h2, h3, h4, h5, h6 {{
+    color: {text_color} !important;
+}}
+
+🔤 TABLE FIX 
+[data-testid="stTable"] table {{
+    background-color: #193675 !important;
+    color: #F0EFEF !important;
+}}
+
+[data-testid="stTable"] th,
+[data-testid="stTable"] td {{
+    background-color: #193675 !important;
+    color: #F0EFEF !important;
+    border: none !important;
+}}
+</style>
 """, unsafe_allow_html=True)
 
+# -------------------------------------------------------------------
+
 if uploaded_file:
-    include_reference_pages = st.toggle("Include abbreviation reference pages", value=False)
+    include_reference_pages = st.toggle(
+        "Include abbreviation reference pages",
+        value=False
+    )
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_input:
         temp_input.write(uploaded_file.read())
@@ -121,6 +99,23 @@ if uploaded_file:
     output_path = input_path.replace(".pdf", "_minimized.pdf")
 
     original_text_pages = extract_text_from_pdf(input_path)
+
+    # ---------------- PDF SUMMARY ----------------
+    st.markdown("## 📝 Smart PDF Summary")
+
+    full_text = " ".join(original_text_pages)
+    num_pages = len(original_text_pages)
+
+    with st.spinner("Generating summary..."):
+        if num_pages == 1:
+            summary = lightweight_summarizer(full_text, num_sentences=6)
+        else:
+            summary = lightweight_summarizer(full_text, num_sentences=15)
+
+        st.text_area("Document Summary", summary, height=300)
+
+    # --------------------------------------------
+
     abbreviations = load_abbreviations("config/abbreviations.json")
     replaced_pages = replace_with_abbreviations(original_text_pages, abbreviations)
 
@@ -134,97 +129,82 @@ if uploaded_file:
 
     original_size = os.path.getsize(input_path)
     minimized_size = os.path.getsize(output_path)
-    percent_reduction = ((original_size - minimized_size) / original_size * 100) if original_size else 0
+    percent_reduction = (
+        (original_size - minimized_size) / original_size * 100
+        if original_size else 0
+    )
 
-    # Layout
+    # Text Comparison
     col1, col2 = st.columns(2)
-
     with col1:
         st.subheader("📄 Original Text")
         st.text_area("Before", "\n\n".join(original_text_pages[:2]), height=400)
-
     with col2:
         st.subheader("📉 Minimized Text")
         st.text_area("After", "\n\n".join(replaced_pages[:2]), height=400)
 
     st.markdown("---")
-    
-    # Using columns for better metric display
+
+    # Metrics
     st.subheader("📊 Compression Summary")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Original Size (KB)", f"{original_size / 1024:.2f}")
-    with col2:
-        st.metric("Minimized Size (KB)", f"{minimized_size / 1024:.2f}")
-    with col3:
-        st.metric("Reduction (%)", f"{percent_reduction:.2f}%")
-    
-    st.metric("Total Replacements", sum(data["count"] for data in used_abbr.values()))
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Original Size (KB)", f"{original_size/1024:.2f}")
+    c2.metric("Minimized Size (KB)", f"{minimized_size/1024:.2f}")
+    c3.metric("Reduction (%)", f"{percent_reduction:.2f}%")
 
-    st.markdown("---")
+    st.metric(
+        "Total Replacements",
+        sum(v["count"] for v in used_abbr.values())
+    )
 
-    # 📊 Compression Effectiveness Graph
-    st.subheader("📉 Compression Effectiveness Graph")
+    # Compression Graph
+    st.subheader("📉 Compression Effectiveness")
     fig, ax = plt.subplots(figsize=(5, 3))
-    labels = ['Original', 'Minimized']
-    sizes = [original_size / 1024, minimized_size / 1024]
-    ax.bar(labels, sizes, color=['skyblue', 'lightgreen'])
+    ax.bar(
+        ["Original", "Minimized"],
+        [original_size/1024, minimized_size/1024]
+    )
     ax.set_ylabel("File Size (KB)")
-    ax.set_title("Size Before and After Compression")
-    # Set text color for plot based on mode
-    ax.tick_params(colors=text_color)
-    ax.title.set_color(text_color)
-    ax.yaxis.label.set_color(text_color)
-    fig.patch.set_facecolor(background_color)
-    ax.set_facecolor(background_color)
     st.pyplot(fig)
 
-    # 🔢 Top Abbreviations Used
+    # Top Abbreviations
     if used_abbr:
         st.subheader("🔢 Top Abbreviations Used")
         sorted_abbr = sorted(
             used_abbr.items(),
-            key=lambda item: item[1]["count"],
+            key=lambda x: x[1]["count"],
             reverse=True
         )[:10]
-        labels = [item[0] for item in sorted_abbr]
-        counts = [item[1]["count"] for item in sorted_abbr]
+
+        labels = [k for k, _ in sorted_abbr]
+        counts = [v["count"] for _, v in sorted_abbr]
+
         fig2, ax2 = plt.subplots(figsize=(6, 4))
-        ax2.barh(labels, counts, color='orange')
+        ax2.barh(labels, counts)
         ax2.set_xlabel("Replacement Count")
-        ax2.set_title("Top 10 Abbreviations Used")
-        # Set text color for plot based on mode
-        ax2.tick_params(colors=text_color)
-        ax2.title.set_color(text_color)
-        ax2.xaxis.label.set_color(text_color)
-        fig2.patch.set_facecolor(background_color)
-        ax2.set_facecolor(background_color)
         ax2.invert_yaxis()
         st.pyplot(fig2)
 
-    # ⏱️ Reading Time Estimation
+    # Reading Time
     st.subheader("⏱️ Reading Time Estimation")
     words_original = sum(len(p.split()) for p in original_text_pages)
     words_minimized = sum(len(p.split()) for p in replaced_pages)
-    original_time = words_original / 200  # Average: 200 wpm
-    minimized_time = words_minimized / 200
-    time_saved = original_time - minimized_time
-    
-    # Using columns for better metric display
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Original Time (min)", f"{original_time:.2f}")
-    with col2:
-        st.metric("Minimized Time (min)", f"{minimized_time:.2f}")
-    with col3:
-        st.metric("Time Saved (min)", f"{time_saved:.2f}")
+
+    r1, r2, r3 = st.columns(3)
+    r1.metric("Original Time (min)", f"{words_original/200:.2f}")
+    r2.metric("Minimized Time (min)", f"{words_minimized/200:.2f}")
+    r3.metric(
+        "Time Saved (min)",
+        f"{(words_original - words_minimized)/200:.2f}"
+    )
 
     st.markdown("---")
+
+    # Abbreviation Table
     st.subheader("🔤 Replaced Abbreviations")
 
     if used_abbr:
-        # Create a custom styled dataframe
-        abbr_data = [
+        table_data = [
             {
                 "Full Form": full,
                 "Abbreviation": data["abbr"],
@@ -232,10 +212,15 @@ if uploaded_file:
             }
             for full, data in used_abbr.items()
         ]
-        # Use table instead of dataframe for consistent styling
-        st.table(abbr_data)
+        st.table(table_data)
     else:
         st.info("No abbreviations were used in this document.")
 
+    # Download
     with open(output_path, "rb") as f:
-        st.download_button("📥 Download Minimized PDF", f, file_name="minimized_output.pdf", mime="application/pdf")
+        st.download_button(
+            "📥 Download Minimized PDF",
+            f,
+            file_name="minimized_output.pdf",
+            mime="application/pdf"
+        )
