@@ -1,6 +1,6 @@
 from modules.extractor import extract_text_from_pdf
 from modules.replacer import load_abbreviations, replace_with_abbreviations
-from modules.abbreviator import abbreviate_pdf
+from modules.abbreviator import abbreviate_pdf 
 
 pdf_path = "Sample.pdf" 
 output_path = "minimized_output.pdf"
