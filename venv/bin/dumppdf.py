@@ -1,5 +1,5 @@
 #!/Users/abhinavdwivedi/Desktop/docminimizer/venv/bin/python3
-"""Extract pdf structure in XML format"""
+"""Extract pdf structure in XML format""" 
 
 import logging
 import os.path
